@@ -161,7 +161,7 @@ namespace GraphPlotter
                 for (int i = 0; i < _gripPrediction.TireData.Count; i++)
                 {
                     TireGripAngleData tga = _gripPrediction.TireData[i];
-                    tga.Exponate += .01f;
+                    tga.ExponateStart += .1f;
                     _gripPrediction.TireData[i] = tga;
                 }
             }
@@ -171,7 +171,7 @@ namespace GraphPlotter
                 for (int i = 0; i < _gripPrediction.TireData.Count; i++)
                 {
                     TireGripAngleData tga = _gripPrediction.TireData[i];
-                    tga.Exponate -= .01f;
+                    tga.ExponateStart -= .1f;
                     _gripPrediction.TireData[i] = tga;
                 }
             }
