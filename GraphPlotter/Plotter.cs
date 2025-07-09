@@ -114,7 +114,7 @@ namespace GraphPlotter
         SpriteBatch _spriteBatch;
 
         TireGripPrediction _gripPrediction;
-
+        SpriteFont _font;
         private KeyboardState _kb, _lkb;
 
         public Plotter(Game game) : base(game)
@@ -147,37 +147,56 @@ namespace GraphPlotter
             _dot.SetData<Color>(new Color[1] { Color.White });
 
             _spriteBatch = new SpriteBatch(this.GraphicsDevice);
+
+            _font = Game.Content.Load<SpriteFont>("font");
             base.LoadContent();
         }
 
+        private float _keyHoldTimeUp = 0, _keyHoldTimeDown = 0;
         public override void Update(GameTime gameTime)
         {
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _lkb = _kb;
 
             _kb = Keyboard.GetState();
+            if (_data.Count == 0)
+            {
+                return;
+            }
+
+            if (_kb.IsKeyDown(Keys.Down))
+                {
+                if (_keyHoldTimeDown >= 1)
+                    _angleToPredict--;
+                _keyHoldTimeDown += dt;
+                
+            }
+            else
+                _keyHoldTimeDown =0;
+
+
+            if (_kb.IsKeyDown(Keys.Up))
+            {
+                if (_keyHoldTimeUp >= 1)
+                    _angleToPredict++;
+                _keyHoldTimeUp += dt;
+            }
+            else
+                _keyHoldTimeUp = 0;
+
 
             if (_kb.IsKeyDown(Keys.Down) && _lkb.IsKeyUp(Keys.Down))
-            {
-                for (int i = 0; i < _gripPrediction.TireData.Count; i++)
-                {
-                    TireGripAngleData tga = _gripPrediction.TireData[i];
-                    tga.ExponateStart += .1f;
-                    _gripPrediction.TireData[i] = tga;
-                }
-            }
+                _angleToPredict--;
+
+          
 
             if (_kb.IsKeyDown(Keys.Up) && _lkb.IsKeyUp(Keys.Up))
-            {
-                for (int i = 0; i < _gripPrediction.TireData.Count; i++)
-                {
-                    TireGripAngleData tga = _gripPrediction.TireData[i];
-                    tga.ExponateStart -= .1f;
-                    _gripPrediction.TireData[i] = tga;
-                }
-            }
-
+                _angleToPredict++;
+          
             base.Update(gameTime);
         }
+
+        private float _angleToPredict = 20;
 
         public const float YScale = 500f;
         public const float XScale = 30;      
@@ -185,11 +204,18 @@ namespace GraphPlotter
         Color.Salmon, Color.Brown, Color.Orange, Color.OrangeRed, Color.DarkCyan, Color.DarkGreen, Color.DarkOrange};
         public override void Draw(GameTime gameTime)
         {
-            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive);
+            if (_data.Count == 0)
+            {
+                base.Draw(gameTime);
+                return;
+            }
+
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
 
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)_position.Y, 2, _height), Color.White);
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)(_axisXMidPoint + _position.Y), _width, 2), Color.White);
 
+           
                for (int sAngle = 0; sAngle < _data[0].Points.Count; sAngle++)
            //int sAngle = 25;
                 for (int speed = 0; speed < _data[0].Points[sAngle].YawRates.Count - 1; speed++)
@@ -198,21 +224,17 @@ namespace GraphPlotter
                         _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint),
                             new Vector2((speed + 1) * XScale + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed + 1] * YScale + _axisXMidPoint), Color.DarkRed, 3f);
 
-                    _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
-                            new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White, 3f);
+                    //_spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
+                     //       new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
                     // _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
                 }
 
-            /*float x = 0;
-            while (x < 1000)
+            for (int x=0;x<300 - 1;x++)
             {
-                _spriteBatch.Draw(_dot, new Vector2(x * XScale + _position.X, _position.Y + _gripPrediction.Predict(x, 20) * YScale + _axisXMidPoint), Color.Blue);
-
-                _spriteBatch.Draw(_dot, new Rectangle((int)(x * XScale + _position.X), (int)(_position.Y + _gripPrediction.TireData[0].ExponatePoint * YScale + _axisXMidPoint),5,5), Color.Red);
-                x += .01f;
+                _spriteBatch.DrawLine(_dot, new Vector2(x * XScale + _position.X, _position.Y + _gripPrediction.Predict(x, _angleToPredict) * YScale + _axisXMidPoint),
+                            new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), Color.Blue, 3f);
             }
-            */
-            //_spriteBatch.Draw(_dot, new Rectangle((int)(_gripPrediction.TireData[0].YawRateChangePoint * XScale + _position.X), (int)(_position.Y + _axisXMidPoint), 5, 50), Color.Red);
+            _spriteBatch.DrawString(_font, $"Steering Angle {_angleToPredict}", new Vector2(1500, 50), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
             _spriteBatch.End();
 
             base.Draw(gameTime);
