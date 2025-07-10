@@ -30,64 +30,76 @@ namespace GraphPlotter
 
 
             string[,] _data = new string[50, 300];
-            int nuberOfColums = 0;
+            int numberOfColums = 0;
             int lineNumber = 0;
-            using (TextReader reader = new StreamReader(filePath))
-            {
-                string? line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    // Split line by comma (basic CSV parsing)
-                    string[] fields = line.Split(',');
 
-                    if (fields.Length > 2)
+            try
+            {
+                using (TextReader reader = new StreamReader(filePath))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
                     {
-                        nuberOfColums = fields.Length;
-                        if (_data[0, lineNumber] == "0")
-                            continue;
-                        for (int i = 0; i < fields.Length; i++)
-                            //if (lineNumber > 0)
+                        // Split line by comma (basic CSV parsing)
+                        string[] fields = line.Split(',');
+
+                        if (fields.Length > 2)
+                        {
+                            numberOfColums = fields.Length;
+                            if (_data[0, lineNumber] == "0")
+                                continue;
+                            for (int i = 0; i < fields.Length; i++)
+                                //if (lineNumber > 0)
                                 _data[i, lineNumber] = fields[i];
-                          
-                        lineNumber++;
-                    }
-                    // Display each field
-                    Console.WriteLine("Row:");
-                    foreach (string field in fields)
-                    {
-                        Console.WriteLine($"  {field}");
+
+                            lineNumber++;
+                        }
+                        // Display each field
+                        Console.WriteLine("Row:");
+                        foreach (string field in fields)
+                        {
+                            Console.WriteLine($"  {field}");
+                        }
                     }
                 }
-            }
 
-            data.Points = new List<GraphDataPoint>();
-            GraphDataPoint point = new GraphDataPoint();
-            point.YawRates = new List<float>();
-            for (int colums = 1; colums < nuberOfColums; colums++)
-            {
-                point.Speed = -1;
-                point.YawRates.Clear();
-                for (int row = 1; row < 300; row++)
+                data.Points = new List<GraphDataPoint>();
+                GraphDataPoint point = new GraphDataPoint();
+                point.YawRates = new List<float>();
+
+                if (numberOfColums == 0)
+                    return null;
+
+                for (int colums = 1; colums < numberOfColums; colums++)
                 {
-                    if (_data[colums, row] == string.Empty)
-                        continue;
-                  
+                    point.Speed = -1;
+                    point.YawRates.Clear();
+                    for (int row = 1; row < 300; row++)
+                    {
+                        if (_data[colums, row] == string.Empty)
+                            continue;
 
-                    point.Speed = Convert.ToSingle(_data[0, row]);
-                    point.SteeringAngle = Convert.ToSingle(_data[colums, 0]);
 
-                    point.YawRates.Add(Convert.ToSingle(_data[colums, row]));
+                        point.Speed = Convert.ToSingle(_data[0, row]);
+                        point.SteeringAngle = Convert.ToSingle(_data[colums, 0]);
+
+                        point.YawRates.Add(Convert.ToSingle(_data[colums, row]));
+                    }
+
+                    GraphDataPoint p = new GraphDataPoint();
+                    p.Speed = point.Speed;
+                    p.SteeringAngle = point.SteeringAngle;
+                    p.YawRates = new List<float>();
+                    foreach (float f in point.YawRates)
+                        p.YawRates.Add(f);
+                    data.Points.Add(p);
                 }
-
-                GraphDataPoint p = new GraphDataPoint();
-                p.Speed = point.Speed;
-                p.SteeringAngle = point.SteeringAngle;
-                p.YawRates = new List<float>();
-                foreach (float f in point.YawRates)
-                    p.YawRates.Add(f);
-                data.Points.Add(p);
             }
-
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
+                return null;
+            }
 
             return data;
 
@@ -117,6 +129,9 @@ namespace GraphPlotter
         SpriteFont _font;
         private KeyboardState _kb, _lkb;
 
+        public float YScale = 500f;
+        public float XScale = 30;
+
         public Plotter(Game game) : base(game)
         {
         }
@@ -125,7 +140,14 @@ namespace GraphPlotter
         {
             if (File.Exists(filepath))
             {
-                _data.Add(filepath);
+                GraphData gd = filepath;
+                if (gd == null)
+                {
+                    Game1.SetInvalidFile();// Set this to exit the game from the plotter
+                    return;
+                }
+
+                _data.Add(gd);
 
                 //now lets make the prediction alg
                 _gripPrediction = new TireGripPrediction(_data[0]);
@@ -153,16 +175,50 @@ namespace GraphPlotter
         }
 
         private float _keyHoldTimeUp = 0, _keyHoldTimeDown = 0;
+
+        MouseState _mouse, _lmouse;
         public override void Update(GameTime gameTime)
         {
+            if (!Game1.IsLoaded)
+                return;
+
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _lkb = _kb;
 
             _kb = Keyboard.GetState();
+
+            _lmouse = _mouse;
+            _mouse = Mouse.GetState();
+
+
+            if (_kb.IsKeyDown(Keys.LeftShift))
+                XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
+            else
+            {
+                XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
+                YScale += 16 * (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
+            }
+
+            XScale = Math.Clamp(XScale, 1, 400);
+            YScale = Math.Clamp(YScale, 16, 2000);
+
+
+
+            if (_mouse.LeftButton == ButtonState.Pressed && _lmouse.LeftButton == ButtonState.Released)
+                if (new Rectangle(1540, 980, 350, 80).Contains(_mouse.Position))
+                {
+                    Game1.ReturnToFileSelect();
+                    _data.Clear();
+                }
+
+            
+
             if (_data.Count == 0)
             {
                 return;
             }
+
+            
 
             if (_kb.IsKeyDown(Keys.Down))
                 {
@@ -198,12 +254,14 @@ namespace GraphPlotter
 
         private float _angleToPredict = 20;
 
-        public const float YScale = 500f;
-        public const float XScale = 30;      
-        Color[] _colors = new Color[] { Color.Red, Color.Blue, Color.Gray, Color.Green, Color.Yellow, Color.White, Color.CornflowerBlue, Color.Chocolate, Color.Crimson, Color.Pink, Color.LightBlue, Color.LightGreen, Color.OrangeRed, Color.PaleGreen,
+    
+        Color[] _colors = new Color[] { Color.Red, Color.DimGray, Color.Gray, Color.Green, Color.Yellow, Color.White, Color.CornflowerBlue, Color.Chocolate, Color.Crimson, Color.Pink, Color.LightBlue, Color.LightGreen, Color.OrangeRed, Color.PaleGreen,
         Color.Salmon, Color.Brown, Color.Orange, Color.OrangeRed, Color.DarkCyan, Color.DarkGreen, Color.DarkOrange};
         public override void Draw(GameTime gameTime)
         {
+            if (!Game1.IsLoaded)
+                return;
+
             if (_data.Count == 0)
             {
                 base.Draw(gameTime);
@@ -215,19 +273,19 @@ namespace GraphPlotter
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)_position.Y, 2, _height), Color.White);
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)(_axisXMidPoint + _position.Y), _width, 2), Color.White);
 
-           
-               for (int sAngle = 0; sAngle < _data[0].Points.Count; sAngle++)
-           //int sAngle = 25;
-                for (int speed = 0; speed < _data[0].Points[sAngle].YawRates.Count - 1; speed++)
-                    if (_data[0].Points[sAngle].YawRates[speed + 1] != 0)
-                    {
-                        _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint),
-                            new Vector2((speed + 1) * XScale + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed + 1] * YScale + _axisXMidPoint), Color.DarkRed, 3f);
+            for (int tireData = 0; tireData < _data.Count; tireData++)
+                for (int sAngle = 0; sAngle < _data[tireData].Points.Count; sAngle++)
+                    //int sAngle = 25;
+                    for (int speed = 0; speed < _data[tireData].Points[sAngle].YawRates.Count - 1; speed++)
+                        if (_data[tireData].Points[sAngle].YawRates[speed + 1] != 0)
+                        {
+                            _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint),
+                                new Vector2((speed + 1) * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed + 1] * YScale + _axisXMidPoint), _colors[tireData], 3f);
 
-                    //_spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
-                     //       new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
-                    // _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
-                }
+                            //_spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
+                            //       new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
+                            // _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
+                        }
 
             for (int x=0;x<300 - 1;x++)
             {
@@ -235,6 +293,9 @@ namespace GraphPlotter
                             new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), Color.Blue, 3f);
             }
             _spriteBatch.DrawString(_font, $"Steering Angle {_angleToPredict}", new Vector2(1500, 50), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+
+            _spriteBatch.Draw(_dot, new Rectangle(1540, 980, 350, 80), Color.LightBlue * .5f);
+            _spriteBatch.DrawString(_font, $"Select New Data", new Vector2(1550, 1000), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
             _spriteBatch.End();
 
             base.Draw(gameTime);
