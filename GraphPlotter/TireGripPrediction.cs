@@ -11,8 +11,8 @@ namespace GraphPlotter
         public float SeeringAngle;
         public float MinSpeed, MaxSpeed;
         public float MinYawRate, MaxYawRate;
-        public int YawRateChangePoint;
-        public float YawRateChangePointValue;
+        public float QuadraticLocation;
+        public float QuadraticValue;
 
         //for the second part of the curve
         public float ExponatePointEnd;
@@ -23,7 +23,7 @@ namespace GraphPlotter
             {
                 _exponateEnd = Math.Clamp(value,-1,1);
 
-                ExponatePointEnd = MaxYawRate * _exponateEnd + YawRateChangePointValue * (1 - _exponateEnd);
+                ExponatePointEnd = MaxYawRate * _exponateEnd + QuadraticValue * (1 - _exponateEnd);
 
             }
         
@@ -41,7 +41,7 @@ namespace GraphPlotter
             {
                 _exponateStart = Math.Clamp(value, -1, 1);
 
-                ExponatePointStart = MaxYawRate * _exponateStart + YawRateChangePointValue * (1 - _exponateStart);
+                ExponatePointStart = MaxYawRate * _exponateStart + QuadraticValue * (1 - _exponateStart);
 
             }
 
@@ -65,15 +65,15 @@ namespace GraphPlotter
             //get pos withing range
             float per = 0;
            
-            if (speed < YawRateChangePoint)
+            if (speed < QuadraticLocation)
             {
-                per = (speed - MinSpeed) / (YawRateChangePoint - MinSpeed);
-                return QuadraticBezier(MinYawRate, ExponateStart, YawRateChangePointValue, per);
+                per = (speed - MinSpeed) / (QuadraticLocation - MinSpeed);
+                return QuadraticBezier(MinYawRate, ExponateStart, QuadraticValue, per);
             }
 
-            per = (speed - YawRateChangePoint) / (MaxSpeed - YawRateChangePoint);
+            per = (speed - QuadraticLocation) / (MaxSpeed - QuadraticLocation);
 
-            return QuadraticBezier(YawRateChangePointValue, ExponatePointEnd, MaxYawRate, per);
+            return QuadraticBezier(QuadraticValue, ExponatePointEnd, MaxYawRate, per);
         }
     }
 
@@ -127,8 +127,8 @@ namespace GraphPlotter
 
                         if (MathHelper.Distance(newChangeInYawRate, changeInYawRate) > .01) //start of drop off
                         {
-                            tgd.YawRateChangePoint = i;
-                            tgd.YawRateChangePointValue = dp.YawRates[i];
+                            tgd.QuadraticLocation = i;
+                            tgd.QuadraticValue = dp.YawRates[i];
                             changeInYawRate = -1; //stop flag
                         }
                     }
@@ -148,7 +148,7 @@ namespace GraphPlotter
                 {
                     float moe = 0;
 
-                    for (int i = (int)tgd.MinSpeed; i < tgd.YawRateChangePoint; i++)
+                    for (int i = (int)tgd.MinSpeed; i < tgd.QuadraticLocation; i++)
                     {
                         moe += Math.Abs(1 - (tgd.Predict(i) / dp.YawRates[i]));
                     }
@@ -173,7 +173,7 @@ namespace GraphPlotter
                 {
                     float moe = 0;
 
-                    for (int i = tgd.YawRateChangePoint; i < tgd.MaxSpeed; i++)
+                    for (int i = (int)tgd.QuadraticLocation; i < tgd.MaxSpeed; i++)
                     {
                         moe += Math.Abs(1 - (tgd.Predict(i) / dp.YawRates[i]));
                     }
@@ -194,8 +194,8 @@ namespace GraphPlotter
                     tgd.MaxSpeed = 100;
                     tgd.MaxYawRate = 0;
                     tgd.MinYawRate = 0;
-                    tgd.YawRateChangePoint = 50;
-                    tgd.YawRateChangePointValue = 0;
+                    tgd.QuadraticLocation = 50;
+                    tgd.QuadraticValue = 0;
                     tgd.ExponateStart = 0;
                 }
 
@@ -239,8 +239,8 @@ namespace GraphPlotter
 
             float differnce = Math.Clamp((MathHelper.Distance(steeringAngle, TireData[index].SeeringAngle) / 10f),0,1);
            
-            tgad.YawRateChangePointValue = MathHelper.Lerp(TireData[index].YawRateChangePointValue, TireData[index - 1].YawRateChangePointValue, differnce);
-            tgad.YawRateChangePoint = (int)MathHelper.Lerp(TireData[index].YawRateChangePoint, TireData[index - 1].YawRateChangePoint, differnce);
+            tgad.QuadraticValue = MathHelper.Lerp(TireData[index].QuadraticValue, TireData[index - 1].QuadraticValue, differnce);
+            tgad.QuadraticLocation = MathHelper.Lerp(TireData[index].QuadraticLocation, TireData[index - 1].QuadraticLocation, differnce);
             tgad.MinYawRate = MathHelper.Lerp(TireData[index].MinYawRate, TireData[index - 1].MinYawRate, differnce);
             tgad.MaxYawRate = MathHelper.Lerp(TireData[index].MaxYawRate , TireData[index - 1].MaxYawRate, differnce);
             tgad.MinSpeed = MathHelper.Lerp(TireData[index].MinSpeed, TireData[index - 1].MinSpeed, differnce);
