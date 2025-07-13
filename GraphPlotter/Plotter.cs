@@ -81,9 +81,19 @@ namespace GraphPlotter
 
 
                         point.Speed = Convert.ToSingle(_data[0, row]);
-                        point.SteeringAngle = Convert.ToSingle(_data[colums, 0]);
+                        //get space
+                        int index = _data[colums, 0].IndexOf(" ");
+                        if (index != -1)
+                        {
+                            point.SteeringAngle = Convert.ToSingle(_data[colums, 0].Substring(0, index));
+                        }
+                        else
+                        {
+                          //  string d = _data[1, 0];
+                            point.SteeringAngle = Convert.ToSingle(_data[colums, 0]);
+                        }
 
-                        point.YawRates.Add(Convert.ToSingle(_data[colums, row]));
+                            point.YawRates.Add(Convert.ToSingle(_data[colums, row]));
                     }
 
                     GraphDataPoint p = new GraphDataPoint();
@@ -129,8 +139,8 @@ namespace GraphPlotter
         SpriteFont _font;
         private KeyboardState _kb, _lkb;
 
-        public float YScale = 500f;
-        public float XScale = 30;
+        public float YScale = 4f;
+        public float XScale = 7;
 
         public Plotter(Game game) : base(game)
         {
@@ -196,11 +206,11 @@ namespace GraphPlotter
             else
             {
                 XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
-                YScale += 16 * (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
+                YScale += 16 * (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 1200f;
             }
 
             XScale = Math.Clamp(XScale, 1, 400);
-            YScale = Math.Clamp(YScale, 16, 2000);
+            YScale = Math.Clamp(YScale, 1, 2000);
 
 
 
