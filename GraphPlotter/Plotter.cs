@@ -140,7 +140,7 @@ namespace GraphPlotter
         private KeyboardState _kb, _lkb;
 
         public float YScale = 4f;
-        public float XScale = 7;
+        public float XScale = 9;
 
         public Plotter(Game game) : base(game)
         {
@@ -187,12 +187,25 @@ namespace GraphPlotter
         private float _keyHoldTimeUp = 0, _keyHoldTimeDown = 0;
 
         MouseState _mouse, _lmouse;
+
+        float setuptest = 0;
         public override void Update(GameTime gameTime)
         {
             if (!Game1.IsLoaded)
                 return;
 
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            setuptest += dt;
+
+            if (setuptest >= 1f)
+
+            {
+                setuptest = 0;
+                //now lets make the prediction alg
+            //   TireGripPrediction.ChangeInThreshold += .01f;
+            //    _gripPrediction = new TireGripPrediction(_data[0]);
+                return;
+        }
             _lkb = _kb;
 
             _kb = Keyboard.GetState();
@@ -207,6 +220,7 @@ namespace GraphPlotter
             {
                 XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
                 YScale += 16 * (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 1200f;
+
             }
 
             XScale = Math.Clamp(XScale, 1, 400);
@@ -292,9 +306,9 @@ namespace GraphPlotter
                             _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint),
                                 new Vector2((speed + 1) * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed + 1] * YScale + _axisXMidPoint), _colors[tireData], 3f);
 
-                            //_spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
-                            //       new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
-                            // _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[0].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
+                          //  _spriteBatch.DrawLine(_dot, new Vector2(speed * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint),
+                               //  new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
+                           //  _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
                         }
 
             for (int x=0;x<300 - 1;x++)
@@ -302,7 +316,10 @@ namespace GraphPlotter
                 _spriteBatch.DrawLine(_dot, new Vector2(x * XScale + _position.X, _position.Y + _gripPrediction.Predict(x, _angleToPredict) * YScale + _axisXMidPoint),
                             new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), Color.Blue, 3f);
             }
-            _spriteBatch.DrawString(_font, $"Steering Angle {_angleToPredict}", new Vector2(1500, 50), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+            _spriteBatch.DrawString(_font, $"Steering Angle {_angleToPredict}", new Vector2(1500, 0), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+
+            for (int i =0; i < _gripPrediction.TireData.Count; i++)
+                _spriteBatch.DrawString(_font, $"Angle {_gripPrediction.TireData[i].SeeringAngle} - {_gripPrediction.TireData[i].MarginOfError:0.00}%", new Vector2(1700, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
 
             _spriteBatch.Draw(_dot, new Rectangle(1540, 980, 350, 80), Color.LightBlue * .5f);
             _spriteBatch.DrawString(_font, $"Select New Data", new Vector2(1550, 1000), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);

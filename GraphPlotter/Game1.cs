@@ -14,7 +14,7 @@ namespace GraphPlotter
 
 
         private string[] _files;
-        public static string PthToData = $"{Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments)}\\MarvinsAIRA Refactored\\Recordings";
+        public static string PthToData = $"{Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments)}\\MarvinsAIRA Refactored\\Calibration";
         private List<int> _selectedItem = new List<int>();
         private int _highlightedItem = -1;
 
@@ -104,6 +104,8 @@ namespace GraphPlotter
                     {
                         plotter.LoadData(_files[item]);
                     }
+
+                    _lmouseState = _mouseState; // Reset mouse state to avoid immediate re-triggering
                 }
             if (_kb.IsKeyDown(Keys.Down) && _lkb.IsKeyUp(Keys.Down))
             {
@@ -138,6 +140,7 @@ namespace GraphPlotter
                     IsLoaded = true;
                     Plotter plotter = (Plotter)this.Components[0];
                     plotter.LoadData(_files[_selectedItem[0]]);
+                  
                 }
             }
             

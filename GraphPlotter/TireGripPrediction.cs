@@ -8,6 +8,8 @@ namespace GraphPlotter
 {
     public struct TireGripAngleData
     {
+        public float MarginOfError;
+
         public float SeeringAngle;
         public float MinSpeed, MaxSpeed;
         public float MinYawRate, MaxYawRate;
@@ -33,15 +35,15 @@ namespace GraphPlotter
 
         //for the first part of the curve
         public float ExponatePointStart;
-        private float _exponateStart;
-        public float ExponateStart
+        private float _exponateStartValue;
+        public float ExponateStartValue
         {
-            get => _exponateStart;
+            get => _exponateStartValue;
             set
             {
-                _exponateStart = Math.Clamp(value, -1, 1);
+                _exponateStartValue = Math.Clamp(value, -1, 1);
 
-                ExponatePointStart = MaxYawRate * _exponateStart + QuadraticValue * (1 - _exponateStart);
+                ExponatePointStart =QuadraticValue * _exponateStartValue;
 
             }
 
@@ -67,10 +69,11 @@ namespace GraphPlotter
            
             if (speed < QuadraticLocation)
             {
+             //   return 0;
                 per = (speed - MinSpeed) / (QuadraticLocation - MinSpeed);
-                return QuadraticBezier(MinYawRate, ExponateStart, QuadraticValue, per);
+                return QuadraticBezier(MinYawRate, ExponatePointStart, QuadraticValue, per);
             }
-
+            //return 0;
             per = (speed - QuadraticLocation) / (MaxSpeed - QuadraticLocation);
 
             return QuadraticBezier(QuadraticValue, ExponatePointEnd, MaxYawRate, per);
@@ -89,8 +92,12 @@ namespace GraphPlotter
                 return dp.YawRates[b] - dp.YawRates[a];
         }
 
+        public static float ChangeInThreshold = .4f; //this is the change in yaw rate that we will use to determine the start of the drop off in yaw rate
+
         public TireGripPrediction(GraphData data)
         {
+
+
 
             foreach(GraphDataPoint dp in data.Points)
             {
@@ -125,7 +132,7 @@ namespace GraphPlotter
                     {
                         float newChangeInYawRate = CalChangeInYawRate(dp, i + 1, i);
 
-                        if (MathHelper.Distance(newChangeInYawRate, changeInYawRate) > .01) //start of drop off
+                        if (MathHelper.Distance(newChangeInYawRate, changeInYawRate) > ChangeInThreshold) //start of drop off
                         {
                             tgd.QuadraticLocation = i;
                             tgd.QuadraticValue = dp.YawRates[i];
@@ -140,11 +147,11 @@ namespace GraphPlotter
 
                 //work out margin of error for the first part of the curve
 
-                tgd.ExponateStart = -1f;
+                tgd.ExponateStartValue = -1f;
                 float bestMOE = float.PositiveInfinity;
                 float bestExponate = 0;
-
-                while (tgd.ExponateStart < 1)
+                
+                while (tgd.ExponateStartValue < 1)
                 {
                     float moe = 0;
 
@@ -156,13 +163,14 @@ namespace GraphPlotter
                     if (moe < bestMOE)
                     {
                         bestMOE = moe;
-                        bestExponate = tgd.ExponateStart;
+                        bestExponate = tgd.ExponateStartValue;
                     }
 
-                    tgd.ExponateStart += .001f;
+                    
+                    tgd.ExponateStartValue += .001f;
                 }
-
-                tgd.ExponateStart = bestExponate;
+                tgd.MarginOfError += bestMOE;
+                tgd.ExponateStartValue = bestExponate;
                 //now lets work out margin of error for the second part of the curve
 
                 tgd.ExponateEnd = -1f;
@@ -188,7 +196,9 @@ namespace GraphPlotter
                 }
 
                 tgd.ExponateEnd = bestExponate;
+                tgd.MarginOfError += bestMOE;
 
+             //   tgd.MarginOfError /= dp.YawRates.Count;
                 if (dp.SteeringAngle == 0) //no angle
                 {
                     tgd.MaxSpeed = 100;
@@ -196,7 +206,7 @@ namespace GraphPlotter
                     tgd.MinYawRate = 0;
                     tgd.QuadraticLocation = 50;
                     tgd.QuadraticValue = 0;
-                    tgd.ExponateStart = 0;
+                    tgd.ExponateStartValue = 0;
                 }
 
                 TireData.Add(tgd);
@@ -249,7 +259,7 @@ namespace GraphPlotter
             tgad.ExponatePointStart = MathHelper.Lerp(TireData[index].ExponatePointStart, TireData[index - 1].ExponatePointStart, differnce);
             tgad.ExponatePointEnd = MathHelper.Lerp(TireData[index].ExponatePointEnd, TireData[index - 1].ExponatePointEnd, differnce);
 
-            tgad.ExponateStart = MathHelper.Lerp(TireData[index].ExponateStart, TireData[index - 1].ExponateStart, differnce);
+            tgad.ExponateStartValue = MathHelper.Lerp(TireData[index].ExponateStartValue, TireData[index - 1].ExponateStartValue, differnce);
             tgad.ExponateEnd = MathHelper.Lerp(TireData[index].ExponateEnd, TireData[index - 1].ExponateEnd, differnce);
 
             
