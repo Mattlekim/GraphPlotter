@@ -7,6 +7,8 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 using Microsoft.Xna.Framework.Input;
+
+using System.Threading;
 namespace GraphPlotter
 {
  
@@ -146,21 +148,32 @@ namespace GraphPlotter
         {
         }
 
-        public void LoadData(string filepath)
+        public bool _isloading = false;
+
+        public void LoadData(string filepath, bool quickView)
         {
             if (File.Exists(filepath))
             {
-                GraphData gd = filepath;
-                if (gd == null)
-                {
-                    Game1.SetInvalidFile();// Set this to exit the game from the plotter
-                    return;
-                }
+                _isloading = true;
 
-                _data.Add(gd);
+               new Thread(() =>
+               {
+                   GraphData gd = filepath;
+                   if (gd == null)
+                   {
+                       Game1.SetInvalidFile();// Set this to exit the game from the plotter
+                       _isloading = false;
+                       return;
+                   }
 
-                //now lets make the prediction alg
-                _gripPrediction = new TireGripPrediction(_data[0]);
+                   _data.Add(gd);
+
+                   //now lets make the prediction alg
+                   _gripPrediction = new TireGripPrediction(_data[0], quickView);
+                   _gripPrediction.Name = filepath.Substring(filepath.LastIndexOf("\\") + 1);
+                   _isloading = false;
+               }).Start();
+               
             }
         }
 
@@ -186,7 +199,7 @@ namespace GraphPlotter
 
         private float _keyHoldTimeUp = 0, _keyHoldTimeDown = 0;
 
-        MouseState _mouse, _lmouse;
+      
 
         float setuptest = 0;
         public override void Update(GameTime gameTime)
@@ -210,16 +223,15 @@ namespace GraphPlotter
 
             _kb = Keyboard.GetState();
 
-            _lmouse = _mouse;
-            _mouse = Mouse.GetState();
+            
 
 
             if (_kb.IsKeyDown(Keys.LeftShift))
-                XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
+                XScale += (Game1.MouseState.ScrollWheelValue - Game1.LMouseState.ScrollWheelValue) / 120f;
             else
             {
-                XScale += (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 120f;
-                YScale += 16 * (_mouse.ScrollWheelValue - _lmouse.ScrollWheelValue) / 1200f;
+                XScale += (Game1.MouseState.ScrollWheelValue - Game1.LMouseState.ScrollWheelValue) / 120f;
+                YScale += 16 * (Game1.MouseState.ScrollWheelValue - Game1.LMouseState.ScrollWheelValue) / 1200f;
 
             }
 
@@ -228,8 +240,8 @@ namespace GraphPlotter
 
 
 
-            if (_mouse.LeftButton == ButtonState.Pressed && _lmouse.LeftButton == ButtonState.Released)
-                if (new Rectangle(1540, 980, 350, 80).Contains(_mouse.Position))
+            if (Game1.MouseState.LeftButton == ButtonState.Pressed && Game1.LMouseState.LeftButton == ButtonState.Released)
+                if (new Rectangle(1540, 980, 350, 80).Contains(Game1.MouseState.Position))
                 {
                     Game1.ReturnToFileSelect();
                     _data.Clear();
@@ -281,6 +293,8 @@ namespace GraphPlotter
     
         Color[] _colors = new Color[] { Color.Red, Color.DimGray, Color.Gray, Color.Green, Color.Yellow, Color.White, Color.CornflowerBlue, Color.Chocolate, Color.Crimson, Color.Pink, Color.LightBlue, Color.LightGreen, Color.OrangeRed, Color.PaleGreen,
         Color.Salmon, Color.Brown, Color.Orange, Color.OrangeRed, Color.DarkCyan, Color.DarkGreen, Color.DarkOrange};
+
+        
         public override void Draw(GameTime gameTime)
         {
             if (!Game1.IsLoaded)
@@ -292,8 +306,25 @@ namespace GraphPlotter
                 return;
             }
 
-            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
+            if (_isloading)
+            {
+                _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
+                _spriteBatch.DrawString(_font, $"Creating Tire Model.", new Vector2(100, 100), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
 
+                _spriteBatch.Draw(_dot, new Rectangle(400, 500, 1004, 74), Color.White);
+                _spriteBatch.Draw(_dot, new Rectangle(402, 502, 1000, 70), Color.Black);
+                _spriteBatch.Draw(_dot, new Rectangle(402, 502, 1000, 70), Color.LightBlue);
+
+                _spriteBatch.DrawString(_font, $"{TireGripPrediction.ProcessingProgress * 100:00.0}%", new Vector2(840, 515), Color.Black, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
+                _spriteBatch.End();
+                return;
+            }
+
+            
+
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
+            _spriteBatch.Draw(_dot, new Rectangle(0,0,2000,50), Color.LightBlue * .5f);
+            _spriteBatch.DrawString(_font, $"{_gripPrediction.Name}", new Vector2(10, 0), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)_position.Y, 2, _height), Color.White);
             _spriteBatch.Draw(_dot, new Rectangle((int)_position.X, (int)(_axisXMidPoint + _position.Y), _width, 2), Color.White);
 
@@ -318,8 +349,15 @@ namespace GraphPlotter
             }
             _spriteBatch.DrawString(_font, $"Steering Angle {_angleToPredict}", new Vector2(1500, 0), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);
 
-            for (int i =0; i < _gripPrediction.TireData.Count; i++)
-                _spriteBatch.DrawString(_font, $"Angle {_gripPrediction.TireData[i].SeeringAngle} - {_gripPrediction.TireData[i].MarginOfError:0.00}%", new Vector2(1700, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+            _spriteBatch.Draw(_dot, new Rectangle(1490, 50, 420,900), Color.Black);
+            for (int i = 0; i < _gripPrediction.TireData.Count; i++)
+            {
+                if (i % 2 == 0)
+                    _spriteBatch.Draw(_dot, new Rectangle(1490, 50 + i * 25, 420, 25), Color.White * .5f);
+                _spriteBatch.DrawString(_font, $"Angle {_gripPrediction.TireData[i].SeeringAngle}", new Vector2(1500, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+                _spriteBatch.DrawString(_font, $"Avg: {_gripPrediction.TireData[i].MarginOfError:0.00}", new Vector2(1650, 50 + i * 25), Color.Lerp(Color.LightGreen, Color.OrangeRed, _gripPrediction.TireData[i].MarginOfError / .5f), 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+                _spriteBatch.DrawString(_font, $"Max: {_gripPrediction.TireData[i].MaxMarginOfError:000.00}", new Vector2(1780, 50 + i * 25), Color.Lerp(Color.LightGreen, Color.OrangeRed, _gripPrediction.TireData[i].MaxMarginOfError / 100f) , 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+            }
 
             _spriteBatch.Draw(_dot, new Rectangle(1540, 980, 350, 80), Color.LightBlue * .5f);
             _spriteBatch.DrawString(_font, $"Select New Data", new Vector2(1550, 1000), Color.White, 0f, new Vector2(0, 0), 1f, SpriteEffects.None, 0f);

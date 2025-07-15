@@ -21,7 +21,7 @@ namespace GraphPlotter
         SpriteFont _font;
         Texture2D _dot;
 
-        MouseState _mouseState, _lmouseState;
+        public static MouseState MouseState, LMouseState;
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -61,6 +61,8 @@ namespace GraphPlotter
 
         protected override void Update(GameTime gameTime)
         {
+            LMouseState = MouseState;
+            MouseState = Mouse.GetState();
 
             if (IsLoaded)
             {
@@ -70,20 +72,19 @@ namespace GraphPlotter
             _lkb = _kb;
             _kb = Keyboard.GetState();
 
-            _lmouseState = _mouseState;
-            _mouseState = Mouse.GetState();
+           
             //_selectedItem = -1;
 
             for (int i = 0; i < _files.Length; i++)
             {
 
-                if (_mouseState.X > 40 && _mouseState.X < 640 && _mouseState.Y > (50 + i * 35) && _mouseState.Y < (50 + i * 35 + 33))
+                if (MouseState.X > 40 && MouseState.X < 640 && MouseState.Y > (50 + i * 35) && MouseState.Y < (50 + i * 35 + 33))
                 {
 
                     _highlightedItem = i;
                    
                     
-                    if (_mouseState.LeftButton == ButtonState.Pressed & _lmouseState.LeftButton == ButtonState.Released)
+                    if (MouseState.LeftButton == ButtonState.Pressed & LMouseState.LeftButton == ButtonState.Released)
                     {
                         if (_kb.IsKeyUp(Keys.LeftShift) && _kb.IsKeyUp(Keys.Right))
                             _selectedItem.Clear();
@@ -95,18 +96,24 @@ namespace GraphPlotter
                 }
             }
 
-            if (_mouseState.LeftButton == ButtonState.Pressed & _lmouseState.LeftButton == ButtonState.Released)
-                if (new Rectangle(1680, 950, 200, 100).Contains(_mouseState.Position)) //click load
+            if (MouseState.LeftButton == ButtonState.Pressed & LMouseState.LeftButton == ButtonState.Released)
+            {
+                if (new Rectangle(1680, 950, 200, 100).Contains(MouseState.Position)) //click load
                 {
                     IsLoaded = true;
                     Plotter plotter = (Plotter)this.Components[0];
                     foreach (var item in _selectedItem)
                     {
-                        plotter.LoadData(_files[item]);
+                        plotter.LoadData(_files[item], _quickView);
                     }
 
-                    _lmouseState = _mouseState; // Reset mouse state to avoid immediate re-triggering
+                    LMouseState = MouseState; // Reset mouse state to avoid immediate re-triggering
                 }
+                if (new Rectangle(1800, 800, 50, 50).Contains(MouseState.Position))
+                {
+                    _quickView = !_quickView;
+                }
+            }
             if (_kb.IsKeyDown(Keys.Down) && _lkb.IsKeyUp(Keys.Down))
             {
                 if (_selectedItem.Count > 1)
@@ -139,7 +146,7 @@ namespace GraphPlotter
                 {
                     IsLoaded = true;
                     Plotter plotter = (Plotter)this.Components[0];
-                    plotter.LoadData(_files[_selectedItem[0]]);
+                    plotter.LoadData(_files[_selectedItem[0]], _quickView);
                   
                 }
             }
@@ -165,6 +172,9 @@ namespace GraphPlotter
         }
         float colorFade = .2f;
         private static float InvalidFileTimer = 0;
+
+        private bool _quickView = false;
+
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);
@@ -201,10 +211,18 @@ namespace GraphPlotter
                 }
 
 
-                if (new Rectangle(1680, 950, 200, 100).Contains(_mouseState.Position))
+                if (new Rectangle(1680, 950, 200, 100).Contains(MouseState.Position))
                     _spriteBatch.Draw(_dot, new Rectangle(1680, 950, 200, 100), Color.Green * .4f);
                 else
                     _spriteBatch.Draw(_dot, new Rectangle(1680, 950, 200, 100), Color.Green * .2f);
+
+
+                _spriteBatch.DrawString(_font, "Quick View", new Vector2(1550, 800), Color.White);
+                _spriteBatch.Draw(_dot, new Rectangle(1800, 800, 50, 50), Color.White);
+                _spriteBatch.Draw(_dot, new Rectangle(1802, 802, 46, 46), Color.Black);
+
+                if (_quickView)
+                    _spriteBatch.Draw(_dot, new Rectangle(1802, 802, 46, 46), Color.Red);
 
                 _spriteBatch.DrawString(_font, "Load", new Vector2(1730, 980), Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
                 _spriteBatch.End();
