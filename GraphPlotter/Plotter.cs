@@ -171,6 +171,8 @@ namespace GraphPlotter
                    //now lets make the prediction alg
                    _gripPrediction = new TireGripPrediction(_data[0], quickView);
                    _gripPrediction.Name = filepath.Substring(filepath.LastIndexOf("\\") + 1);
+                   _gripPrediction.Name = _gripPrediction.Name.Replace(".csv", "");
+                   _gripPrediction.SavedToTFP();
                    _isloading = false;
                }).Start();
                

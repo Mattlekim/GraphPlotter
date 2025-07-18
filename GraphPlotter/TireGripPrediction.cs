@@ -1,32 +1,51 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
-
-using Microsoft.Xna.Framework;
+using System.Xml.Serialization;
 namespace GraphPlotter
 {
+    [XmlType("TireGripData")]
     public struct TireGripAngleData
     {
+
+        [XmlIgnore]
         public float MarginOfError;
+        [XmlIgnore]
         public float MaxMarginOfError;
 
+        [XmlElement("SteeringAngle")]
         public float SeeringAngle;
-        public float MinSpeed, MaxSpeed;
-        public float MinYawRate, MaxYawRate;
-        public float QuadraticLocation;
-        public float QuadraticValue;
+        [XmlElement("MinimumSpeed")]
+        public float MinSpeed;
+        [XmlElement("MaximumSpeed")]
+        public float MaxSpeed;
+
+        [XmlElement("MinimumYawRate")]
+        public float MinYawRate;
+        [XmlElement("MaximumYawRate")]
+        public float MaxYawRate;
+
+        [XmlElement("SeperationPoint")]
+        public float SeperationPoint;
+        [XmlElement("SeperationValue")]
+        public float SeperationValue;
 
         //for the second part of the curve
-        public float ExponatePointEnd;
-        private float _exponateEnd;
-        public float ExponateEnd
-        { get => _exponateEnd;
+        [XmlIgnore]
+        public float QuadraticLineTwoLocation;
+        [XmlIgnore]
+        private float _quadraticLineTwoValue;
+        
+        public float QuadraticLineTwoValue
+        { get => _quadraticLineTwoValue;
             set
             {
-                _exponateEnd = Math.Clamp(value,-1,1);
+                _quadraticLineTwoValue = Math.Clamp(value,-1,1);
 
-                ExponatePointEnd = MaxYawRate * _exponateEnd + QuadraticValue * (1 - _exponateEnd);
+                QuadraticLineTwoLocation = MaxYawRate * _quadraticLineTwoValue + SeperationValue * (1 - _quadraticLineTwoValue);
 
             }
         
@@ -35,16 +54,19 @@ namespace GraphPlotter
 
 
         //for the first part of the curve
-        public float ExponatePointStart;
-        private float _exponateStartValue;
-        public float ExponateStartValue
+        [XmlIgnore]
+        public float QuadraticLineOneLocation;
+        [XmlIgnore]
+        private float _quadraticLineOneValue;
+
+        public float QuadraticLineOneValue
         {
-            get => _exponateStartValue;
+            get => _quadraticLineOneValue;
             set
             {
-                _exponateStartValue = Math.Clamp(value, -1, 1);
+                _quadraticLineOneValue = Math.Clamp(value, -1, 1);
 
-                ExponatePointStart =QuadraticValue * _exponateStartValue;
+                QuadraticLineOneLocation =SeperationValue * _quadraticLineOneValue;
 
             }
 
@@ -68,24 +90,29 @@ namespace GraphPlotter
             //get pos withing range
             float per = 0;
            
-            if (speed < QuadraticLocation)
+            if (speed < SeperationPoint)
             {
              //   return 0;
-                per = (speed - MinSpeed) / (QuadraticLocation - MinSpeed);
-                return QuadraticBezier(MinYawRate, ExponatePointStart, QuadraticValue, per);
+                per = (speed - MinSpeed) / (SeperationPoint - MinSpeed);
+                return QuadraticBezier(MinYawRate, QuadraticLineOneLocation, SeperationValue, per);
             }
             //return 0;
-            per = (speed - QuadraticLocation) / (MaxSpeed - QuadraticLocation);
+            per = (speed - SeperationPoint) / (MaxSpeed - SeperationPoint);
 
-            return QuadraticBezier(QuadraticValue, ExponatePointEnd, MaxYawRate, per);
+            return QuadraticBezier(SeperationValue, QuadraticLineTwoLocation, MaxYawRate, per);
         }
     }
 
+    [XmlRoot("TireGripPrediction")]
     public class TireGripPrediction
     {
+        [XmlElement("TireGripData")]
         public List<TireGripAngleData> TireData { get; set; } = new List<TireGripAngleData>();
 
+        [XmlElement("Name")]
         public string Name { get; set; } = string.Empty;
+
+        public TireGripPrediction() { }
 
         private float CalChangeInYawRate(GraphDataPoint dp, int a, int b)
         {
@@ -94,8 +121,9 @@ namespace GraphPlotter
             else
                 return dp.YawRates[b] - dp.YawRates[a];
         }
-
+        [XmlIgnore]
         public static float ChangeInThreshold = .4f; //this is the change in yaw rate that we will use to determine the start of the drop off in yaw rate
+
 
 
         //create a new tire grip prediction from the data
@@ -131,70 +159,70 @@ namespace GraphPlotter
 
             }
 
-            tgd.QuadraticLocation = qLocation;
-            tgd.QuadraticValue = dp.YawRates[qLocation];
+            tgd.SeperationPoint = qLocation;
+            tgd.SeperationValue = dp.YawRates[qLocation];
 
             tgd.MaxSpeed = index; //set max speed //we subtract 1 becase ther 
             tgd.MaxYawRate = dp.YawRates[index]; //set max yawrate
             tgd.MaxMarginOfError = 0;
             //work out margin of error for the first part of the curve
 
-            tgd.ExponateStartValue = -1f;
+            tgd.QuadraticLineOneValue = -1f;
             float bestMOE = float.PositiveInfinity;
             float bestExponate = 0;
 
-            while (tgd.ExponateStartValue < 1)
+            while (tgd.QuadraticLineOneValue < 1)
             {
                 float moe = 0;
 
-                for (int i = (int)tgd.MinSpeed; i < tgd.QuadraticLocation; i++)
+                for (int i = (int)tgd.MinSpeed; i < tgd.SeperationPoint; i++)
                 {
                     if (dp.YawRates[i] == 0) //no yaw rate at this speed
                         continue;
                     moe += MathHelper.Distance(tgd.Predict(i), dp.YawRates[i]);
                 }
-               
+
                 if (moe < bestMOE)
                 {
                     bestMOE = moe;
-                    bestExponate = tgd.ExponateStartValue;
+                    bestExponate = tgd.QuadraticLineOneValue;
                 }
 
 
-                tgd.ExponateStartValue += .001f;
+                tgd.QuadraticLineOneValue += .001f;
             }
             tgd.MaxMarginOfError += bestMOE; //set max margin of error for the first part of the curve
             tgd.MarginOfError += bestMOE;
-            tgd.ExponateStartValue = bestExponate;
+            tgd.QuadraticLineOneValue = bestExponate;
             //now lets work out margin of error for the second part of the curve
 
-            tgd.ExponateEnd = -1f;
+            tgd.QuadraticLineTwoValue = -1f;
 
             bestMOE = float.PositiveInfinity;
             bestExponate = 0;
-            while (tgd.ExponateEnd < 1)
+            while (tgd.QuadraticLineTwoValue < 1)
             {
                 float moe = 0;
 
-                for (int i = (int)tgd.QuadraticLocation; i < tgd.MaxSpeed; i++)
+                for (int i = (int)tgd.SeperationPoint; i < tgd.MaxSpeed; i++)
                 {
                     if (dp.YawRates[i] == 0) //no yaw rate at this speed
                         continue;
                     moe += MathHelper.Distance(tgd.Predict(i), dp.YawRates[i]);
                 }
-               
+
                 if (moe < bestMOE)
                 {
                     bestMOE = moe;
-                    bestExponate = tgd.ExponateEnd;
+                    bestExponate = tgd.QuadraticLineTwoValue;
 
-                   
+
                 }
 
-                tgd.ExponateEnd += .001f;
+                tgd.QuadraticLineTwoValue += .001f;
             }
             tgd.MaxMarginOfError += bestMOE; //set max margin of error for the second part of the curve
-            tgd.ExponateEnd = bestExponate;
+            tgd.QuadraticLineTwoValue = bestExponate;
             tgd.MarginOfError += bestMOE;
 
             tgd.MarginOfError /= dp.YawRates.Count;
@@ -204,9 +232,9 @@ namespace GraphPlotter
                 tgd.MaxSpeed = 100;
                 tgd.MaxYawRate = 0;
                 tgd.MinYawRate = 0;
-                tgd.QuadraticLocation = 50;
-                tgd.QuadraticValue = 0;
-                tgd.ExponateStartValue = 0;
+                tgd.SeperationPoint = 50;
+                tgd.SeperationValue = 0;
+                tgd.QuadraticLineOneValue = 0;
             }
 
 
@@ -254,7 +282,7 @@ namespace GraphPlotter
             }
         }
 
-        
+
         public float Predict(float speed, float steeringAngle)
         {
             int index = TireData.FindIndex(x => x.SeeringAngle >= steeringAngle);
@@ -277,34 +305,56 @@ namespace GraphPlotter
                 return TireData[0].Predict(speed);
             }
 
-            
+
             if (index == 0 || index >= TireData.Count) //check if data we need is bondry
                 return TireData[index].Predict(speed);
 
             //now lerp between the 2 valuves
             TireGripAngleData tgad = new TireGripAngleData();
 
-            float differnce = Math.Clamp((MathHelper.Distance(steeringAngle, TireData[index].SeeringAngle) / 10f),0,1);
-           
-            tgad.QuadraticValue = MathHelper.Lerp(TireData[index].QuadraticValue, TireData[index - 1].QuadraticValue, differnce);
-            tgad.QuadraticLocation = MathHelper.Lerp(TireData[index].QuadraticLocation, TireData[index - 1].QuadraticLocation, differnce);
+            float differnce = Math.Clamp((MathHelper.Distance(steeringAngle, TireData[index].SeeringAngle) / 10f), 0, 1);
+
+            tgad.SeperationValue = MathHelper.Lerp(TireData[index].SeperationValue, TireData[index - 1].SeperationValue, differnce);
+            tgad.SeperationPoint = MathHelper.Lerp(TireData[index].SeperationPoint, TireData[index - 1].SeperationPoint, differnce);
             tgad.MinYawRate = MathHelper.Lerp(TireData[index].MinYawRate, TireData[index - 1].MinYawRate, differnce);
-            tgad.MaxYawRate = MathHelper.Lerp(TireData[index].MaxYawRate , TireData[index - 1].MaxYawRate, differnce);
+            tgad.MaxYawRate = MathHelper.Lerp(TireData[index].MaxYawRate, TireData[index - 1].MaxYawRate, differnce);
             tgad.MinSpeed = MathHelper.Lerp(TireData[index].MinSpeed, TireData[index - 1].MinSpeed, differnce);
             tgad.MaxSpeed = MathHelper.Lerp(TireData[index].MaxSpeed, TireData[index - 1].MaxSpeed, differnce);
 
-            tgad.ExponatePointStart = MathHelper.Lerp(TireData[index].ExponatePointStart, TireData[index - 1].ExponatePointStart, differnce);
-            tgad.ExponatePointEnd = MathHelper.Lerp(TireData[index].ExponatePointEnd, TireData[index - 1].ExponatePointEnd, differnce);
+            tgad.QuadraticLineOneLocation = MathHelper.Lerp(TireData[index].QuadraticLineOneLocation, TireData[index - 1].QuadraticLineOneLocation, differnce);
+            tgad.QuadraticLineTwoLocation = MathHelper.Lerp(TireData[index].QuadraticLineTwoLocation, TireData[index - 1].QuadraticLineTwoLocation, differnce);
 
-            tgad.ExponateStartValue = MathHelper.Lerp(TireData[index].ExponateStartValue, TireData[index - 1].ExponateStartValue, differnce);
-            tgad.ExponateEnd = MathHelper.Lerp(TireData[index].ExponateEnd, TireData[index - 1].ExponateEnd, differnce);
+            tgad.QuadraticLineOneValue = MathHelper.Lerp(TireData[index].QuadraticLineOneValue, TireData[index - 1].QuadraticLineOneValue, differnce);
+            tgad.QuadraticLineTwoValue = MathHelper.Lerp(TireData[index].QuadraticLineTwoValue, TireData[index - 1].QuadraticLineTwoValue, differnce);
 
-            
+
 
             return tgad.Predict(speed);
 
 
-            
+
+        }
+
+
+        public void SavedToTFP()
+        {
+            var serializer = new XmlSerializer(typeof(TireGripPrediction));
+            using (var writer = new StreamWriter($"{Name}.xml"))
+            {
+                serializer.Serialize(writer, this);
+            }
+
+        }
+
+        public void LoadFromTFP(string fileName)
+        {
+            var serializer = new XmlSerializer(typeof(TireGripPrediction));
+            using (var reader = new StreamReader(fileName))
+            {
+                TireGripPrediction loadedData = (TireGripPrediction)serializer.Deserialize(reader);
+                this.TireData = loadedData.TireData;
+
+            }
         }
     }
 }
