@@ -169,7 +169,7 @@ namespace GraphPlotter
                    _data.Add(gd);
 
                    //now lets make the prediction alg
-                   _gripPrediction = new TireGripPrediction(_data[0], quickView);
+                   _gripPrediction = new TireGripPredictionMatts(_data[0], quickView);
                    _gripPrediction.Name = filepath.Substring(filepath.LastIndexOf("\\") + 1);
                    _gripPrediction.Name = _gripPrediction.Name.Replace(".csv", "");
                    _gripPrediction.SavedToTFP();

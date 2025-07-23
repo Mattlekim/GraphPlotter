@@ -33,6 +33,10 @@ namespace GraphPlotter
           //  plotter.LoadData(@"C:\Users\m_bri\OneDrive\Documents\MarvinsAIRA Refactored\Recordings\Super Formula Lights 324.csv");
             Components.Add(plotter);
 
+            if (!System.IO.Directory.Exists(PthToData))
+            {
+                System.IO.Directory.CreateDirectory(PthToData);
+            }
             _files = System.IO.Directory.GetFiles(PthToData, "*.csv");
         }
 
@@ -181,6 +185,11 @@ namespace GraphPlotter
             if (!IsLoaded)
             {
                 _spriteBatch.Begin();
+
+                if (_files.Length == 0)
+                {
+                    _spriteBatch.DrawString(_font, "No File Exist!", new Vector2(50, 50 + 35), Color.Red, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+                }
 
                 for (int i = 0; i < _files.Length; i++)
                 {
