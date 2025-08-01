@@ -30,13 +30,10 @@ namespace GraphPlotter
             _selectedItem.Add(0); // Start with the first item selected
             Plotter plotter = new Plotter(this);
             plotter.SetPosition(new Vector2(50, 50), 1800, 900);
-          //  plotter.LoadData(@"C:\Users\m_bri\OneDrive\Documents\MarvinsAIRA Refactored\Recordings\Super Formula Lights 324.csv");
+            //  plotter.LoadData(@"C:\Users\m_bri\OneDrive\Documents\MarvinsAIRA Refactored\Recordings\Super Formula Lights 324.csv");
             Components.Add(plotter);
 
-            if (!System.IO.Directory.Exists(PthToData))
-            {
-                System.IO.Directory.CreateDirectory(PthToData);
-            }
+            this.Window.AllowUserResizing = true;
             _files = System.IO.Directory.GetFiles(PthToData, "*.csv");
         }
 
@@ -55,7 +52,7 @@ namespace GraphPlotter
             _font = Content.Load<SpriteFont>("font");
 
             _dot = new Texture2D(GraphicsDevice, 1, 1);
-            _dot.SetData<Color>(new Color[] { Color.White});
+            _dot.SetData<Color>(new Color[] { Color.White });
             // TODO: use this.Content to load your game content here
         }
 
@@ -63,10 +60,23 @@ namespace GraphPlotter
         public static bool IsLoaded { get; private set; } = false;
         private static bool InvalidFile = false; // Used to exit the game from the plotter
 
+
+        public static Vector2 MouseDragDelat { get; private set; } = Vector2.Zero;
         protected override void Update(GameTime gameTime)
         {
+            MouseDragDelat = Vector2.Zero; // Reset drag delta on new click
             LMouseState = MouseState;
             MouseState = Mouse.GetState();
+
+            if (MouseState.LeftButton == ButtonState.Pressed && LMouseState.LeftButton == ButtonState.Released)
+            {
+                MouseDragDelat = Vector2.Zero; // Reset drag delta on new click
+            }
+            else if (MouseState.LeftButton == ButtonState.Pressed)
+            {
+                MouseDragDelat = new Vector2(MouseState.X - LMouseState.X, MouseState.Y - LMouseState.Y);
+
+            }
 
             if (IsLoaded)
             {
