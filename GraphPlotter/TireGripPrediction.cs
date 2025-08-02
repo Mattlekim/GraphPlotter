@@ -15,6 +15,10 @@ namespace GraphPlotter
         public float MarginOfError;
         [XmlIgnore]
         public float MaxMarginOfError;
+        [XmlIgnore]
+        public float StandardDeviation; 
+        [XmlIgnore]
+        public int MaxErrorIndex; 
 
         [XmlElement("SteeringAngle")]
         public float SeeringAngle;
@@ -44,10 +48,10 @@ namespace GraphPlotter
             get => _quadraticLineTwoValue;
             set
             {
-                _quadraticLineTwoValue = Math.Clamp(value, -1, 1);
+                _quadraticLineTwoValue = Math.Clamp(value, -2, 2);
 
-                QuadraticLineTwoLocation = MaxYawRate * _quadraticLineTwoValue + SeperationValue * (1 - _quadraticLineTwoValue);
-
+                 QuadraticLineTwoLocation = MaxYawRate * _quadraticLineTwoValue + SeperationValue * (1 - _quadraticLineTwoValue);
+                //QuadraticLineTwoLocation =MaxYawRate; 
             }
 
         }
@@ -99,6 +103,14 @@ namespace GraphPlotter
             return Predict(speed);
         }
 
+        public Color DebugColor(float speed)
+        {
+            if (speed < SeperationPoint)
+                return Color.CornflowerBlue;
+
+            return Color.LightBlue;
+        }
+
         public float Predict(float speed)
         {
             //max sure speed in within range of the array
@@ -107,15 +119,18 @@ namespace GraphPlotter
             //get pos withing range
             float per = 0;
 
-            if (speed < SeperationPoint)
+            if (speed <= SeperationPoint)
             {
                 //   return 0;
                 per = (speed - MinSpeed) / (SeperationPoint - MinSpeed);
                 return QuadraticBezier(MinYawRate, QuadraticLineOneLocation, SeperationValue, per);
             }
             //return 0;
+          //  per = (float)Math.Pow((speed - SeperationPoint) / (MaxSpeed - SeperationPoint),2);
             per = (speed - SeperationPoint) / (MaxSpeed - SeperationPoint);
-
+            //per *= 1.1f;
+            //per = Math.Clamp(per, 0, 1);
+            per = (float)Math.Sin(per * 1.4f) * 1.02f;
             return QuadraticBezier(SeperationValue, QuadraticLineTwoLocation, MaxYawRate, per);
         }
     }
@@ -129,6 +144,7 @@ namespace GraphPlotter
         [XmlElement("Name")]
         public string Name { get; set; } = string.Empty;
 
+
         public TireGripPrediction() { }
 
         private float CalChangeInYawRate(GraphDataPoint dp, int a, int b)
@@ -141,7 +157,39 @@ namespace GraphPlotter
         [XmlIgnore]
         public static float ChangeInThreshold = .4f; //this is the change in yaw rate that we will use to determine the start of the drop off in yaw rate
 
+        private void CalculateStandardDeviation(GraphDataPoint dp,ref TireGripAngleData tgd)
+        {
+            tgd.StandardDeviation = 0;
+            int count = 0;
 
+            
+            for (int i = 0; i < dp.YawRates.Count; i++)
+            {
+
+
+                if (dp.YawRates[i] == 0) //no yaw rate at this speed
+                    continue;
+
+                     if (MathHelper.Distance(tgd.MaxErrorIndex, i) < 2) //ignore that blip in the data around 35 - 45 kph
+                       continue;
+
+                bool valid = false;
+                float deviation = MathHelper.Distance(dp.YawRates[i], tgd.PredictAndCheck(i,out valid));
+                if (valid)
+                {
+                    tgd.StandardDeviation += deviation * deviation;
+                }
+                count++;
+            }
+        //    bool v = false;
+        //    float f = tgd.PredictAndCheck(54, out v);
+           // tgd.PredictAndCheck(54, out v);
+            if (count > 1)
+            {
+                tgd.StandardDeviation = (float)Math.Sqrt(tgd.StandardDeviation /  (count - 1)); //get average error
+                
+            }
+        }
 
         //create a new tire grip prediction from the data
         public TireGripAngleData CreateTireGripPrediction(GraphDataPoint dp, int qLocation)
@@ -190,25 +238,52 @@ namespace GraphPlotter
 
             float tmp;
             bool valid;
+           
+            tgd.MaxErrorIndex = -1;
+           
+            float actualWorstError = 0;
+            int actualWorstErrorIndex = 0;
+            float currentWorstError = 0;
+            int currentWorstErrorIndex = 0;
             while (tgd.QuadraticLineOneValue < 1)
             {
                 float moe = 0;
+          
+                currentWorstError = 0;
+               
 
+                if (MathHelper.Distance(tgd.QuadraticLineOneValue, 0.6779855f) < .001)
+                {
+
+                }
                 for (int i = (int)tgd.MinSpeed; i < tgd.SeperationPoint; i++)
                 {
                     if (dp.YawRates[i] == 0) //no yaw rate at this speed
                         continue;
                     tmp = MathHelper.Distance(tgd.PredictAndCheck(i, out valid), dp.YawRates[i]);
                     if (valid)
+                    {
                         moe += tmp;
-
+                        
+                    }
+                   // if (dp.SteeringAngle == 164)
+                        if (tmp > currentWorstError)
+                        {
+                            currentWorstError = tmp;
+                            currentWorstErrorIndex = i;
+                        }
 
                 }
 
+                           
                 if (moe < bestMOE)
                 {
                     bestMOE = moe;
+                    
                     bestExponate = tgd.QuadraticLineOneValue;
+
+                    actualWorstError = currentWorstError;
+                    actualWorstErrorIndex = currentWorstErrorIndex;
                 }
 
 
@@ -217,30 +292,51 @@ namespace GraphPlotter
             tgd.MaxMarginOfError += bestMOE; //set max margin of error for the first part of the curve
             tgd.MarginOfError += bestMOE;
             tgd.QuadraticLineOneValue = bestExponate;
+            tgd.MaxErrorIndex = actualWorstErrorIndex;
+          
             //now lets work out margin of error for the second part of the curve
 
             tgd.QuadraticLineTwoValue = -1f;
 
             bestMOE = float.PositiveInfinity;
             bestExponate = 0;
+           
+            currentWorstError = 0;
+
+            float actualWorstError2 = 0;
+            actualWorstErrorIndex = 0;
+
             while (tgd.QuadraticLineTwoValue < 1)
             {
                 float moe = 0;
-
+               
+                currentWorstError = 0;
                 for (int i = (int)tgd.SeperationPoint; i < tgd.MaxSpeed; i++)
                 {
                     if (dp.YawRates[i] == 0) //no yaw rate at this speed
                         continue;
                     tmp = MathHelper.Distance(tgd.PredictAndCheck(i, out valid), dp.YawRates[i]);
+                    if (tmp > currentWorstError)
+                    {
+                        currentWorstError = tmp;
+                        currentWorstErrorIndex = i;
+                    }
+
                     if (valid)
+                    {
                         moe += tmp;
+                       
+                    }
                 }
 
                 if (moe < bestMOE)
                 {
                     bestMOE = moe;
+                  
                     bestExponate = tgd.QuadraticLineTwoValue;
 
+                    actualWorstError2 = currentWorstError;
+                    actualWorstErrorIndex = currentWorstErrorIndex;
 
                 }
 
@@ -249,8 +345,14 @@ namespace GraphPlotter
             tgd.MaxMarginOfError += bestMOE; //set max margin of error for the second part of the curve
             tgd.QuadraticLineTwoValue = bestExponate;
             tgd.MarginOfError += bestMOE;
-
+          
             tgd.MarginOfError /= dp.YawRates.Count;
+           
+
+            if (actualWorstError2 > actualWorstError)
+            {
+                tgd.MaxErrorIndex = actualWorstErrorIndex;
+            }
             //   tgd.MarginOfError /= dp.YawRates.Count;
             if (dp.SteeringAngle == 0) //no angle
             {
@@ -263,6 +365,7 @@ namespace GraphPlotter
             }
 
 
+            
             return tgd;
 
         }
@@ -303,10 +406,13 @@ namespace GraphPlotter
                 if (bestIndex == -1) //no data for this angle
                     continue;
                 tgd = CreateTireGripPrediction(dp, bestIndex);
+                CalculateStandardDeviation(dp, ref tgd);
                 TireData.Add(tgd);
             }
         }
 
+        [XmlIgnore]
+        public Color DebugOut { get; protected set; }
 
         public float Predict(float speed, float steeringAngle)
         {
@@ -325,14 +431,19 @@ namespace GraphPlotter
 
                 if (MathHelper.Distance(TireData[TireData.Count - 1].SeeringAngle, steeringAngle) < dist)
                 {
+                    DebugOut = TireData[TireData.Count - 1].DebugColor(speed);
                     return TireData[TireData.Count - 1].Predict(speed);
                 }
+                DebugOut = TireData[0].DebugColor(speed);
                 return TireData[0].Predict(speed);
             }
 
 
             if (index == 0 || index >= TireData.Count) //check if data we need is bondry
+            {
+                DebugOut = TireData[index].DebugColor(speed);
                 return TireData[index].Predict(speed);
+            }
 
             //  index -= 1;
             //now lerp between the 2 valuves
@@ -354,7 +465,7 @@ namespace GraphPlotter
             tgad.QuadraticLineOneValue = MathHelper.Lerp(TireData[index].QuadraticLineOneValue, TireData[index - 1].QuadraticLineOneValue, differnce);
             tgad.QuadraticLineTwoValue = MathHelper.Lerp(TireData[index].QuadraticLineTwoValue, TireData[index - 1].QuadraticLineTwoValue, differnce);
 
-
+            DebugOut = tgad.DebugColor(speed);
 
             return tgad.Predict(speed);
 

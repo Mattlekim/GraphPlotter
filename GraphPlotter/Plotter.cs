@@ -298,6 +298,22 @@ namespace GraphPlotter
             if (_kb.IsKeyDown(Keys.Up) && _lkb.IsKeyUp(Keys.Up))
                 _angleToPredict++;
 
+      /*      if (_kb.IsKeyDown(Keys.Right))
+            {
+                TireGripAngleData dd = _gripPrediction.TireData[35];
+                dd.QuadraticLineTwoValue += .001f;
+
+                _gripPrediction.TireData[35] = dd;
+            }
+
+            if (_kb.IsKeyDown(Keys.Left))
+            {
+                TireGripAngleData dd = _gripPrediction.TireData[35];
+                dd.QuadraticLineTwoValue -= .001f;
+
+                _gripPrediction.TireData[35] = dd;
+            }
+      */
             base.Update(gameTime);
         }
 
@@ -345,19 +361,28 @@ namespace GraphPlotter
 
             _spriteBatch.Draw(_dot, new Rectangle((int)(_position.X + _drawOffset.X), (int)(_drawOffset.Y + _axisXMidPoint + _position.Y), 10000, 2), Color.White);
 
+            int output;
             for (int i = 0; i < 300; i++)
             {
-                if (i % 10 == 0)
-                    _spriteBatch.DrawString(_font, $"{i}", new Vector2(_position.X + i * XScale + _drawOffset.X, _position.Y + _drawOffset.Y + _axisXMidPoint), Color.White, 0f, _font.MeasureString($"{i}") * .5f, XScale / 40f, SpriteEffects.None, 0f);
+                output = i + 1;
+                if (XScale > 15)
+                {
+                    if (output % 10 != 0)
+                        _spriteBatch.DrawString(_font, $"{output}", new Vector2(_position.X + i * XScale + _drawOffset.X, _position.Y + _drawOffset.Y + _axisXMidPoint), Color.White, 0f, _font.MeasureString($"{output}") * .5f, XScale / 80f, SpriteEffects.None, 0f);
+                }
+                
+                if (output % 10 == 0)
+                    _spriteBatch.DrawString(_font, $"{output}", new Vector2(_position.X + i * XScale + _drawOffset.X, _position.Y + _drawOffset.Y + _axisXMidPoint), Color.White, 0f, _font.MeasureString($"{output}") * .5f, XScale / 40f, SpriteEffects.None, 0f);
             }
 
             for (int tireData = 0; tireData < _data.Count; tireData++)
                 for (int sAngle = 0; sAngle < _data[tireData].Points.Count; sAngle++)
+                {
                     //int sAngle = 25;
                     for (int speed = 0; speed < _data[tireData].Points[sAngle].YawRates.Count - 1; speed++)
                         if (_data[tireData].Points[sAngle].YawRates[speed + 1] != 0)
                         {
-                           
+
                             _spriteBatch.DrawLine(_dot, _drawOffset + new Vector2(speed * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint),
                                 _drawOffset + new Vector2((speed + 1) * XScale + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed + 1] * YScale + _axisXMidPoint), _colors[tireData], 3f);
 
@@ -365,11 +390,13 @@ namespace GraphPlotter
                             //  new Vector2((speed + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(speed + 1, _data[0].Points[sAngle].SteeringAngle) * YScale + _axisXMidPoint), Color.White * .9f, 3f);
                             //  _spriteBatch.Draw(_dot, new Vector2(speed * 10 + _position.X, _position.Y + _data[tireData].Points[sAngle].YawRates[speed] * YScale + _axisXMidPoint), _colors[sAngle]);
                         }
+                  
+                }
 
             for (int x = 0; x < 300 - 1; x++)
             {
                  _spriteBatch.DrawLine(_dot, _drawOffset + new Vector2(x * XScale + _position.X, _position.Y + _gripPrediction.Predict(x, _angleToPredict) * YScale + _axisXMidPoint),
-                            _drawOffset + new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), Color.Blue, 3f);
+                            _drawOffset + new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), _gripPrediction.DebugOut, 3f);
             }
             _spriteBatch.Draw(_dot, new Rectangle(0, 0, this.GraphicsDevice.Viewport.Width, 50), Color.LightBlue * .5f);
 
@@ -380,11 +407,21 @@ namespace GraphPlotter
             for (int i = 0; i < _gripPrediction.TireData.Count; i++)
             {
                 if (i % 2 == 0)
-                    _spriteBatch.Draw(_dot, new Rectangle(1490, 50 + i * 25, 420, 25), Color.White * .5f);
+                    _spriteBatch.Draw(_dot, new Rectangle(this.GraphicsDevice.Viewport.Width - 400, 50 + i * 25, 420, 25), Color.White * .5f);
 
-                _spriteBatch.DrawString(_font, $"Angle {_gripPrediction.TireData[i].SeeringAngle}", new Vector2(this.GraphicsDevice.Viewport.Width - 400, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+                
+                _spriteBatch.DrawString(_font, $"Ang {_gripPrediction.TireData[i].SeeringAngle} Deg", new Vector2(this.GraphicsDevice.Viewport.Width - 400, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
                 _spriteBatch.DrawString(_font, $"Avg: {_gripPrediction.TireData[i].MarginOfError:0.00}", new Vector2(this.GraphicsDevice.Viewport.Width - 250, 50 + i * 25), Color.Lerp(Color.LightGreen, Color.OrangeRed, _gripPrediction.TireData[i].MarginOfError / .5f), 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
-                _spriteBatch.DrawString(_font, $"Max: {_gripPrediction.TireData[i].MaxMarginOfError:000.00}", new Vector2(this.GraphicsDevice.Viewport.Width - 130, 50 + i * 25), Color.Lerp(Color.LightGreen, Color.OrangeRed, _gripPrediction.TireData[i].MaxMarginOfError / 100f), 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+                //_spriteBatch.DrawString(_font, $"Max: {_gripPrediction.TireData[i].MaxMarginOfError:000.00}", new Vector2(this.GraphicsDevice.Viewport.Width - 130, 50 + i * 25), Color.Lerp(Color.LightGreen, Color.OrangeRed, _gripPrediction.TireData[i].MaxMarginOfError / 100f), 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+
+                _spriteBatch.DrawString(_font, $"SD {_gripPrediction.TireData[i].StandardDeviation:0.000}", new Vector2(this.GraphicsDevice.Viewport.Width - 130, 50 + i * 25), Color.White, 0f, new Vector2(0, 0), .5f, SpriteEffects.None, 0f);
+
+                //  if (i == 35)
+                {
+                    int index = _gripPrediction.TireData[i].MaxErrorIndex;
+                    if (_gripPrediction.TireData[i].MaxErrorIndex != -1)
+                        _spriteBatch.DrawLine(_dot, _drawOffset + _position + new Vector2(XScale * _gripPrediction.TireData[i].MaxErrorIndex, (_data[0].Points[i].YawRates[index] - 1f) * YScale + _axisXMidPoint ), _drawOffset + _position + new Vector2(XScale * _gripPrediction.TireData[i].MaxErrorIndex, (_data[0].Points[i].YawRates[index] + 1f) * YScale + _axisXMidPoint), Color.White, 4);
+                }
             }
 
            
