@@ -10,6 +10,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 using System.Threading;
+using System.Threading.Tasks;
 namespace GraphPlotter
 {
 
@@ -33,12 +34,11 @@ namespace GraphPlotter
             GraphData data = new GraphData();
 
 
-            string[,] _data = new string[50, 300];
+            string[,] _data = new string[70, 300];
             int numberOfColums = 0;
             int lineNumber = 0;
-
+            int runningThreads = 0;
             try
-            //   try
             {
                 using (TextReader reader = new StreamReader(filePath))
                 {
@@ -69,19 +69,20 @@ namespace GraphPlotter
                 }
 
                 data.Points = new List<GraphDataPoint>();
-                GraphDataPoint point = new GraphDataPoint();
-                point.YawRates = new List<float>();
+               
 
                 if (numberOfColums == 0)
                     return null;
 
                 for (int colums = 1; colums < numberOfColums; colums++)
+               // Parallel.For(1, numberOfColums, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, colums =>
                 {
-                    
+                    GraphDataPoint point = new GraphDataPoint();
+                    point.YawRates = new List<float>();
                     // point.Speed = -1;
                     point.YawRates.Clear();
-                 
-                        point.SteeringAngle = Convert.ToSingle(_data[colums, 1]);
+
+                    point.SteeringAngle = Convert.ToSingle(_data[colums, 1]);
                     for (int row = 3; row < 300; row++)
                     {
                         if (_data[colums, row] == string.Empty)
@@ -91,13 +92,13 @@ namespace GraphPlotter
                     }
 
                     GraphDataPoint p = new GraphDataPoint();
-                 
-                  
+
+
                     p.SteeringAngle = point.SteeringAngle;
                     p.YawRates = new List<float>();
 
                     foreach (float f in point.YawRates)
-                       
+
                     {
                         //if (f == 0)
                         p.YawRates.Add(f);
@@ -105,17 +106,23 @@ namespace GraphPlotter
                         //  p.YawRates.Add(MathF.Log((p.YawRates.Count + 1) / ((f) + 1f)));
                     }
                     data.Points.Add(p);
+
+
                 }
             }
             catch (Exception ex)
-            // catch (Exception ex)
             {
                 Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
+
                 return null;
                 //   Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
                 //   return null;
             }
 
+            while (runningThreads > 0)
+            {
+                Thread.Sleep(100);
+            }
             GraphDataPoint gdp = new GraphDataPoint();
             gdp.SteeringAngle = 0;
             gdp.YawRates = new List<float>();
@@ -168,7 +175,7 @@ namespace GraphPlotter
             {
                 _isloading = true;
 
-                new Thread(() =>
+                Task.Factory.StartNew( ()=>
                 {
                     GraphData gd = filepath;
                     if (gd == null)
@@ -186,7 +193,7 @@ namespace GraphPlotter
                     _gripPrediction.Name = _gripPrediction.Name.Replace(".csv", "");
                     _gripPrediction.SavedToTFP();
                     _isloading = false;
-                }).Start();
+                });
 
             }
         }
