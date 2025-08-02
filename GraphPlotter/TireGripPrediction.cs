@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+﻿
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,6 +7,27 @@ using System.Text;
 using System.Xml.Serialization;
 namespace GraphPlotter
 {
+    public static class MathHelper
+    {
+        /// <summary>
+        /// Lerp between two values
+        /// </summary>
+        /// <param name="a">Start value</param>
+        /// <param name="b">End value</param>
+        /// <param name="t">Interpolation factor (0 to 1)</param>
+        /// <returns>Interpolated value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Lerp(float a, float b, float t)
+        {
+            return a + (b - a) * t;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Distance(float a, float b)
+        {
+            return Math.Abs(b - a);
+        }
+    }
+
     [XmlType("TireGripData")]
     public struct TireGripAngleData
     {
@@ -55,7 +76,8 @@ namespace GraphPlotter
             }
 
         }
-
+        
+      
 
 
         //for the first part of the curve
@@ -103,12 +125,14 @@ namespace GraphPlotter
             return Predict(speed);
         }
 
-        public Color DebugColor(float speed)
+        private const uint CornflowerBlue = 0xFF6495ED;
+        private const uint LightBlue = 0xFFADD8E6;
+        public uint DebugColor(float speed)
         {
             if (speed < SeperationPoint)
-                return Color.CornflowerBlue;
+                return CornflowerBlue;
 
-            return Color.LightBlue;
+            return LightBlue;
         }
 
         public float Predict(float speed)
@@ -412,7 +436,7 @@ namespace GraphPlotter
         }
 
         [XmlIgnore]
-        public Color DebugOut { get; protected set; }
+        public uint DebugOut { get; protected set; }
 
         public float Predict(float speed, float steeringAngle)
         {

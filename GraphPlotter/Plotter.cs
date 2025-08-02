@@ -403,7 +403,7 @@ namespace GraphPlotter
             for (int x = 0; x < 300 - 1; x++)
             {
                  _spriteBatch.DrawLine(_dot, _drawOffset + new Vector2(x * XScale + _position.X, _position.Y + _gripPrediction.Predict(x, _angleToPredict) * YScale + _axisXMidPoint),
-                            _drawOffset + new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), _gripPrediction.DebugOut, 3f);
+                            _drawOffset + new Vector2((x + 1) * XScale + _position.X, _position.Y + _gripPrediction.Predict(x + 1, _angleToPredict) * YScale + _axisXMidPoint), new Color(_gripPrediction.DebugOut), 3f);
             }
             _spriteBatch.Draw(_dot, new Rectangle(0, 0, this.GraphicsDevice.Viewport.Width, 50), Color.LightBlue * .5f);
 
